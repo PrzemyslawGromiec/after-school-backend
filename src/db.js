@@ -6,7 +6,7 @@ export async function connectDB(uri, dbName) {
   client = new MongoClient(uri);
   await client.connect();
   db = client.db(dbName);
-  console.log('✅ Mongo connected:', db.databaseName);
+  console.log('Mongo connected:', db.databaseName);
   return db;
 }
 
