@@ -1,8 +1,10 @@
 import { col, ObjectId } from '../db.js';
 
-function isValidPhone(s) { return /^\+?[0-9\s-]{7,15}$/.test(s || ''); }
+function isValidPhone(s) {
+  return /^\+?[0-9\s-]{7,15}$/.test(s || '');
+}
 
-// POST /api/orders { customer:{name,phone} | {name,phone}, items:[{id,qty}] }
+// POST /api/orders  { customer:{name,phone}, items:[{id,qty}] }
 export async function createOrder(req, res, next) {
   try {
     const body = req.body || {};
@@ -14,30 +16,65 @@ export async function createOrder(req, res, next) {
       return res.status(400).json({ error: 'Invalid payload' });
     }
 
+    console.log('BODY:', req.body);
+
     let total = 0;
     const lessonIDs = [];
     const spacesArr = [];
     const updated = [];
 
     for (const it of items) {
-      const id  = it.id;
+      const id  = String(it.id);
       const qty = Math.max(1, Number(it.qty || 1));
+
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).json({ error: `Invalid lesson id: ${id}` });
+      }
+      const _id = ObjectId.createFromHexString(id);
+
+      console.log('Checking lesson:', {
+      id, qty,
+      filter: { _id, space: { $gte: qty } }
+      });
+
+      const check = await col('lessons').findOne({ _id });
+      console.log('Found in DB:', check);
+
       const upd = await col('lessons').findOneAndUpdate(
-        { _id: new ObjectId(id), space: { $gte: qty } },
+        { _id, space: { $gte: qty } },
         { $inc: { space: -qty } },
         { returnDocument: 'after' }
       );
-      if (!upd.value) return res.status(400).json({ error: `Not enough space for ${id}` });
 
-      total += Number(upd.value.price) * qty;
-      lessonIDs.push(new ObjectId(id));
+      console.log('>> upd:', upd.space, upd.price);
+
+      if (!upd.space) {
+        return res.status(400).json({ error: `Not enough space for lesson ${id}` });
+      }
+
+      total += Number(upd.price) * qty;
+      lessonIDs.push(_id);
       spacesArr.push(qty);
-      updated.push({ id: upd.value._id, space: upd.value.space });
+      updated.push({ id: upd._id, space: upd.space });
     }
 
-    const doc = { name, phone, lessonIDs, spaces: spacesArr, total, createdAt: new Date() };
+    const doc = {
+      name,
+      phone,
+      lessonIDs,
+      spaces: spacesArr,
+      total,
+      createdAt: new Date()
+    };
+
+    console.log('Inserting order:', doc);
+
     const { insertedId } = await col('orders').insertOne(doc);
+    console.log('Inserted order id:', insertedId);
 
     res.status(201).json({ orderId: insertedId, total, updated });
-  } catch (e) { next(e); }
+
+  } catch (err) {
+    next(err);
+  }
 }
