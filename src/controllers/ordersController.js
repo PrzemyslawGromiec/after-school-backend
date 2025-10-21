@@ -30,6 +30,7 @@ export async function createOrder(req, res, next) {
       if (!ObjectId.isValid(id)) {
         return res.status(400).json({ error: `Invalid lesson id: ${id}` });
       }
+      
       const _id = ObjectId.createFromHexString(id);
 
       console.log('Checking lesson:', {
@@ -74,6 +75,44 @@ export async function createOrder(req, res, next) {
 
     res.status(201).json({ orderId: insertedId, total, updated });
 
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/orders
+export async function getOrders(req, res, next) {
+  try {
+    const orders = await col('orders')
+    .find({})
+    .sort({ createdAt: -1 })
+    .toArray();
+    res.json(orders);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getOrdersByName(req, res, next) {
+  try {
+    const {name} = req.query;
+
+    if (!name || name.trim().length < 2) {
+      return res.status(400).json({ error: 'Invalid name parameter and it must be min 2 characters.' });
+    }
+
+    const regex = new RegExp(`^${name.trim()}`, 'i');
+    const orders = await col('orders')
+    .find({ name: { $regex: regex} })
+    .sort({ createdAt: -1 })
+    .limit(50)
+    .toArray();
+
+    if (orders.length === 0) {
+      return res.status(404).json({ message: `No orders found for name starting with "${name}"` });
+    }
+
+    res.json(orders);
   } catch (err) {
     next(err);
   }
