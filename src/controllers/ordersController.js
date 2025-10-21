@@ -163,3 +163,41 @@ export async function getOrderSummaryByName(req, res, next) {
   }
 }
 
+export async function deleteOrderWithRestore(req, res, next) {
+  try {
+    const { id } = req.params;
+    if (!ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid ID' });
+    const _id = ObjectId.createFromHexString(id);
+
+    const order = await col('orders').findOne({ _id });
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    const ops = (order.lessonIDs || []).map((lessonId, i) => ({
+      updateOne: {
+        filter: { _id: lessonId },
+        update: { $inc: { space: Math.max(1, Number(order.spaces?.[i] ?? 1)) } }
+      }
+    }));
+
+    let lessonsResult = { matchedCount: 0, modifiedCount: 0 };
+    if (ops.length) {
+      const r = await col('lessons').bulkWrite(ops, { ordered: false });
+      lessonsResult = { matchedCount: r.matchedCount ?? 0, modifiedCount: r.modifiedCount ?? 0 };
+    }
+
+    const del = await col('orders').deleteOne({ _id });
+
+    return res.json({
+      message: 'Order deleted and lesson spaces restored',
+      orderId: id,
+      restoredSpaces: (order.lessonIDs || []).map((lid, i) => ({
+        lessonId: lid.toString(),
+        spaceDelta: Math.max(1, Number(order.spaces?.[i] ?? 1))
+      })),
+      stats: lessonsResult,
+      deletedCount: del.deletedCount || 0
+    });
+  } catch (err) { next(err); }
+}
+
+
