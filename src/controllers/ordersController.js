@@ -93,8 +93,10 @@ export async function getOrders(req, res, next) {
   }
 }
 
+// GET /api/orders/search?name=...
 export async function getOrdersByName(req, res, next) {
   try {
+    console.log('QUERY:', req.query);
     const {name} = req.query;
 
     if (!name || name.trim().length < 2) {
@@ -117,3 +119,47 @@ export async function getOrdersByName(req, res, next) {
     next(err);
   }
 }
+
+// GET /api/orders/summary?name=...
+export async function getOrderSummaryByName(req, res, next) {
+  try {
+    const {name} = req.query;
+    if (!name || name.length < 2) {
+      return res.status(400).json({ error: 'Query parameter "name" is required and must have at least 2 characters.' });
+    }
+
+    const regex = new RegExp(`^${name}`, 'i');
+    const pipeline = [
+      { $match: { name: { $regex: regex } } },
+      { $unwind: { path: '$lessonIDs', includeArrayIndex: 'index' } },
+      {
+        $lookup: {
+          from: 'lessons',
+          localField: 'lessonIDs',
+          foreignField: '_id',
+          as: 'lessonInfo'
+        }
+      },
+      { $unwind: '$lessonInfo' },
+      {
+        $project: {
+          _id: 0,
+          customer: '$name',
+          lesson: '$lessonInfo.topic',
+          spacesBooked: { $arrayElemAt: ['$spaces', '$index'] }
+        }
+      }
+    ];
+
+    const results = await col('orders').aggregate(pipeline).toArray();
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: `No orders found for name starting with "${name}"` });
+    }
+
+    res.json(results);
+  } catch (err) {
+    next(err);
+  }
+}
+
