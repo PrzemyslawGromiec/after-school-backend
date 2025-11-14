@@ -55,3 +55,38 @@ export async function updateLesson(req, res, next) {
     });
   } catch (e) { next(e); }
 }
+
+// PATCH /api/lessons/:id/spaces
+export async function updateLessonSpaces(req, res, next) {
+  try {
+    const db = getDb();
+    const id = req.params.id;
+
+    // Validate ObjectId before using it
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid lesson id' });
+    }
+
+    const _id = new ObjectId(id);
+
+    // delta must be a number
+    const { delta } = req.body;
+    if (typeof delta !== 'number') {
+      return res.status(400).json({ error: 'delta (number) is required' });
+    }
+
+    const result = await db.collection('lessons').findOneAndUpdate(
+      { _id },
+      { $inc: { spaces: delta } },
+      { returnDocument: 'after' }
+    );
+
+    if (!result.value) {
+      return res.status(404).json({ error: 'Lesson not found' });
+    }
+
+    res.json(result.value);
+  } catch (err) {
+    next(err);
+  }
+}
