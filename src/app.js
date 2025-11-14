@@ -34,9 +34,6 @@ export function buildApp({ corsOrigin }) {
     })
   );
 
-  // Handle preflight explicitly
-  app.options("*", cors());
-
   // Health
   app.get("/api/health", (_, res) => res.json({ ok: true, ts: Date.now() }));
 
