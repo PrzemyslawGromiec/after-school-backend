@@ -59,8 +59,6 @@ export async function updateLesson(req, res, next) {
 // PATCH /api/lessons/:id/spaces
 export async function updateLessonSpaces(req, res, next) {
   try {
-    const db = getDb();
-
     const id = req.params.id;
     let _id;
     try {
@@ -74,7 +72,7 @@ export async function updateLessonSpaces(req, res, next) {
       return res.status(400).json({ error: 'delta (number) is required' });
     }
 
-    const result = await db.collection('lessons').findOneAndUpdate(
+    const result = await col('lessons').findOneAndUpdate(
       { _id },
       { $inc: { space: delta } },
       { returnDocument: 'after' }
