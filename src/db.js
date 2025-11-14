@@ -4,6 +4,7 @@ let client, db;
 
 export async function connectDB(uri, dbName) {
   client = new MongoClient(uri);
+  console.log('Connecting to MongoDB...');
   await client.connect();
   db = client.db(dbName);
   console.log('Mongo connected:', db.databaseName);
