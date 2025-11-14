@@ -59,31 +59,41 @@ export async function updateLesson(req, res, next) {
 // PATCH /api/lessons/:id/spaces
 export async function updateLessonSpaces(req, res, next) {
   try {
-    const id = req.params.id;
-    let _id;
-    try {
-      _id = new ObjectId(id);
-    } catch (e) {
+    const { id } = req.params;
+
+    // 1) validate id
+    if (!ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid lesson id' });
     }
+    const _id = new ObjectId(id);
 
+    // 2) validate delta
     const { delta } = req.body;
     if (typeof delta !== 'number') {
       return res.status(400).json({ error: 'delta (number) is required' });
     }
 
-    const result = await col('lessons').findOneAndUpdate(
+    const lessons = col('lessons');
+
+    // 3) update the document
+    const upd = await lessons.updateOne(
       { _id },
-      { $inc: { space: delta } },
-      { returnOriginal: false }
+      { $inc: { space: delta } }
     );
 
-    if (!result.value) {
+    if (upd.matchedCount === 0) {
+      // no document with this _id
       return res.status(404).json({ error: 'Lesson not found' });
     }
 
-    const d = result.value;
+    // 4) read the updated document
+    const d = await lessons.findOne({ _id });
 
+    if (!d) {
+      return res.status(404).json({ error: 'Lesson not found' });
+    }
+
+    // 5) map DB → API shape
     return res.json({
       _id: d._id,
       subject: d.topic,
