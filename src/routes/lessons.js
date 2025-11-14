@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { listLessons, updateLesson } from '../controllers/lessonsController.js';
+import { listLessons, updateLesson, updateLessonSpaces } from '../controllers/lessonsController.js';
 
 const r = Router();
 r.get('/', listLessons);
