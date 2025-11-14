@@ -60,21 +60,23 @@ export async function updateLesson(req, res, next) {
 export async function updateLessonSpaces(req, res, next) {
   try {
     const db = getDb();
-    const id = req.params.id;
 
-    // Validate ObjectId before using it
-    if (!ObjectId.isValid(id)) {
+    // 1) validate id
+    const id = req.params.id;
+    let _id;
+    try {
+      _id = new ObjectId(id);
+    } catch (e) {
       return res.status(400).json({ error: 'Invalid lesson id' });
     }
 
-    const _id = new ObjectId(id);
-
-    // delta must be a number
+    // 2) validate delta
     const { delta } = req.body;
     if (typeof delta !== 'number') {
       return res.status(400).json({ error: 'delta (number) is required' });
     }
 
+    // 3) atomic update
     const result = await db.collection('lessons').findOneAndUpdate(
       { _id },
       { $inc: { spaces: delta } },
@@ -85,8 +87,9 @@ export async function updateLessonSpaces(req, res, next) {
       return res.status(404).json({ error: 'Lesson not found' });
     }
 
-    res.json(result.value);
+    return res.json(result.value);
   } catch (err) {
+    console.error('updateLessonSpaces error:', err);
     next(err);
   }
 }

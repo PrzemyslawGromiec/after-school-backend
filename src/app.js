@@ -7,7 +7,7 @@ import fs from "node:fs";
 import lessonsRouter from "./routes/lessons.js";
 import ordersRouter from "./routes/orders.js";
 
-export function buildApp({ corsOrigin }) {
+export function buildApp() {
   const app = express();
 
   // Logger
