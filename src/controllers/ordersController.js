@@ -39,30 +39,32 @@ export async function createOrder(req, res, next) {
         filter: { _id, space: { $gte: qty } },
       });
 
-      const check = await col("lessons").findOne({ _id });
-      console.log("Found in DB:", check);
-
-      const upd = await col("lessons").findOneAndUpdate(
+      // 1) Try to decrement space if enough is available
+      const updResult = await col("lessons").updateOne(
         { _id, space: { $gte: qty } },
-        { $inc: { space: -qty } },
-        {
-          returnDocument: "after",
-          returnOriginal: false,
-        }
+        { $inc: { space: -qty } }
       );
 
-      const doc = upd.value;
+      console.log("updateOne result:", updResult);
 
-      console.log(">> upd.value:", doc);
-
-      // if no document matched (space < qty or missing), value will be null
-      if (!doc) {
+      // If no doc matched, either lesson not found or not enough space
+      if (updResult.matchedCount === 0) {
         return res
           .status(400)
           .json({ error: `Not enough space for lesson ${id}` });
       }
 
-      // here doc.space is a number (can be 0 and that's fine)
+      // 2) Read updated lesson
+      const doc = await col("lessons").findOne({ _id });
+      console.log("Updated lesson:", doc);
+
+      if (!doc) {
+        return res
+          .status(400)
+          .json({ error: `Lesson ${id} not found after update` });
+      }
+
+      // 3) Use updated doc to compute totals
       total += Number(doc.price) * qty;
       lessonIDs.push(_id);
       spacesArr.push(qty);
@@ -109,11 +111,9 @@ export async function getOrdersByName(req, res, next) {
     const { name } = req.query;
 
     if (!name || name.trim().length < 2) {
-      return res
-        .status(400)
-        .json({
-          error: "Invalid name parameter and it must be min 2 characters.",
-        });
+      return res.status(400).json({
+        error: "Invalid name parameter and it must be min 2 characters.",
+      });
     }
 
     const regex = new RegExp(`^${name.trim()}`, "i");
@@ -140,12 +140,10 @@ export async function getOrderSummaryByName(req, res, next) {
   try {
     const { name } = req.query;
     if (!name || name.length < 2) {
-      return res
-        .status(400)
-        .json({
-          error:
-            'Query parameter "name" is required and must have at least 2 characters.',
-        });
+      return res.status(400).json({
+        error:
+          'Query parameter "name" is required and must have at least 2 characters.',
+      });
     }
 
     const regex = new RegExp(`^${name}`, "i");
