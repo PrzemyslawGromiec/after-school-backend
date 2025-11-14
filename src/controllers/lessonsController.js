@@ -30,22 +30,46 @@ export async function listLessons(req, res, next) {
 export async function updateLesson(req, res, next) {
   try {
     const { id } = req.params;
-    const patch = req.body || {};
 
-    if (patch.spaces != null && patch.space == null) {
-      patch.space = patch.spaces;
-      delete patch.spaces;
+    // 1) validate id
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid lesson id' });
+    }
+    const _id = new ObjectId(id);
+
+    // 2) build update object from body
+    const patch = req.body || {};
+    const update = {};
+
+    // frontend uses: subject, location, price, spaces, image
+    // DB uses: topic, location, price, space, image
+    if (patch.subject != null)  update.topic    = patch.subject;
+    if (patch.location != null) update.location = patch.location;
+    if (patch.price != null)    update.price    = patch.price;
+    if (patch.spaces != null)   update.space    = patch.spaces;
+    if (patch.image != null)    update.image    = patch.image;
+
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
     }
 
-    const out = await col('lessons').findOneAndUpdate(
-      { _id: new ObjectId(id) },
-      { $set: patch },
-      { returnDocument: 'after' }
-    );
-    if (!out.value) return res.status(404).json({ error: 'not found' });
+    const lessons = col('lessons');
 
-    const d = out.value;
-    res.json({
+    // 3) update document
+    const upd = await lessons.updateOne(
+      { _id },
+      { $set: update }
+    );
+
+    if (upd.matchedCount === 0) {
+      return res.status(404).json({ error: 'Lesson not found' });
+    }
+
+    // 4) fetch updated document
+    const d = await lessons.findOne({ _id });
+
+    // 5) map DB → API shape
+    return res.json({
       _id: d._id,
       subject: d.topic,
       location: d.location,
@@ -53,7 +77,9 @@ export async function updateLesson(req, res, next) {
       spaces: d.space,
       image: d.image
     });
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 }
 
 // PATCH /api/lessons/:id/spaces
