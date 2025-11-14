@@ -61,7 +61,6 @@ export async function updateLessonSpaces(req, res, next) {
   try {
     const db = getDb();
 
-    // 1) validate id
     const id = req.params.id;
     let _id;
     try {
@@ -70,16 +69,14 @@ export async function updateLessonSpaces(req, res, next) {
       return res.status(400).json({ error: 'Invalid lesson id' });
     }
 
-    // 2) validate delta
     const { delta } = req.body;
     if (typeof delta !== 'number') {
       return res.status(400).json({ error: 'delta (number) is required' });
     }
 
-    // 3) atomic update
     const result = await db.collection('lessons').findOneAndUpdate(
       { _id },
-      { $inc: { spaces: delta } },
+      { $inc: { space: delta } },
       { returnDocument: 'after' }
     );
 
@@ -87,7 +84,17 @@ export async function updateLessonSpaces(req, res, next) {
       return res.status(404).json({ error: 'Lesson not found' });
     }
 
-    return res.json(result.value);
+    const d = result.value;
+
+    return res.json({
+      _id: d._id,
+      subject: d.topic,
+      location: d.location,
+      price: d.price,
+      spaces: d.space,
+      image: d.image
+    });
+
   } catch (err) {
     console.error('updateLessonSpaces error:', err);
     next(err);
