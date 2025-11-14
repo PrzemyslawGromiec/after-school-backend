@@ -75,7 +75,7 @@ export async function updateLessonSpaces(req, res, next) {
     const result = await col('lessons').findOneAndUpdate(
       { _id },
       { $inc: { space: delta } },
-      { returnDocument: 'after' }
+      { returnOriginal: false }
     );
 
     if (!result.value) {
