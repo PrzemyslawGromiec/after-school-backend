@@ -1,4 +1,6 @@
 import { connectDB, col } from '../src/db.js';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const data = [
   { topic:'Math',    location:'Hendon',    price:100, space:5, image:'math.png' },
@@ -14,6 +16,7 @@ const data = [
 ];
 
 const MONGODB_URI = process.env.MONGODB_URI;
+console.log('process.env.MONGODB_URI', MONGODB_URI);
 const DB_NAME = process.env.DB_NAME || 'after_school';
 
 if (!MONGODB_URI) { console.error('Missing MONGODB_URI'); process.exit(1); }
