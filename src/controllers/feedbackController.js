@@ -1,4 +1,4 @@
-import { col } from "../db";
+import { col } from "../db.js";
 
 export async function submitFeedback(req, res, next) {
     try {
