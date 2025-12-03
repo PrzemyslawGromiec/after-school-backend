@@ -21,7 +21,7 @@ export async function submitFeedback(req, res, next) {
       name: name.trim(),
       email: email.trim(),
       message: message.trim(),
-      submittedAt: new Date(),
+      createdAt: new Date(),
     };
 
     const result = await col("feedback").insertOne(doc);
@@ -40,7 +40,7 @@ export async function listFeedback(req, res, next) {
   try {
     const feedbacks = await col("feedback")
       .find()
-      .sort({ submittedAt: -1 })
+      .sort({ createdAt: -1 })
       .limit(100)
       .toArray();
     return res.json(feedbacks);
