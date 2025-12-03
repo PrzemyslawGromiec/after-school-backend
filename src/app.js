@@ -6,6 +6,7 @@ import fs from "node:fs";
 
 import lessonsRouter from "./routes/lessons.js";
 import ordersRouter from "./routes/orders.js";
+import feedbackRouter from "./routes/feedback.js";
 
 export function buildApp() {
   const app = express();
@@ -50,6 +51,7 @@ export function buildApp() {
   // Routes
   app.use("/api/lessons", lessonsRouter);
   app.use("/api/orders", ordersRouter);
+  app.use("/api/feedback", feedbackRouter);
 
   // Error handler
   app.use((err, req, res, next) => {
