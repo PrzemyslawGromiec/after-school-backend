@@ -52,7 +52,14 @@ export async function updateLesson(req, res, next) {
     // DB uses: topic, location, price, space, image
     if (patch.subject != null) update.topic = patch.subject;
     if (patch.location != null) update.location = patch.location;
-    if (patch.price != null) update.price = patch.price;
+    if (patch.price != null) {
+      if (typeof patch.price !== "number" || patch.price < 0) {
+        return res
+          .status(400)
+          .json({ error: "price must be a non-negative number" });
+      }
+      update.price = patch.price;
+    }
     if (patch.spaces != null) {
       if (typeof patch.spaces !== "number" || patch.spaces < 0) {
         return res
