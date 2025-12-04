@@ -1,4 +1,4 @@
-import { col } from "../db.js";
+import { col, ObjectId } from "../db.js";
 
 export async function submitFeedback(req, res, next) {
   try {
@@ -44,6 +44,35 @@ export async function listFeedback(req, res, next) {
       .limit(100)
       .toArray();
     return res.json(feedbacks);
+  } catch (e) {
+    next(e);
+  }
+}
+
+export async function deleteFeedbackById(req, res, next) {
+  try {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "Invalid id format" });
+    }
+
+    const objectId = ObjectId.createFromHexString(id);
+
+    const result = await col("feedback").findOneAndDelete({ _id: objectId });
+    console.log("findOneAndDelete result:", result);
+
+    // Depending on driver version:
+    const deletedDoc = result?.value ?? result; // v4: result.value, v5+: result is the doc
+
+    if (!deletedDoc) {
+      return res.status(404).json({ error: "Feedback not found" });
+    }
+
+    return res.json({
+      message: `Feedback from ${deletedDoc.email} deleted successfully`,
+      id: deletedDoc._id,
+    });
   } catch (e) {
     next(e);
   }
