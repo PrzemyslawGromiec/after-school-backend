@@ -4,6 +4,7 @@ import { col, ObjectId } from "../db.js";
 export async function listLessons(req, res, next) {
   try {
     const { q, sort = "topic", dir = "asc" } = req.query;
+    // filter by either topic or location matching q (case insensitive)
     const filter = q
       ? {
           $or: [
