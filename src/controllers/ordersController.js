@@ -1,19 +1,58 @@
 import { col, ObjectId } from "../db.js";
 
-function isValidPhone(s) {
-  return /^\+?[0-9\s-]{7,15}$/.test(s || "");
+function sanitizeName(name) {
+  return String(name || "")
+    .trim()
+    .replace(/\s+/g, " "); // collapse multiple spaces
+}
+
+function validateName(name) {
+  const sanitized = sanitizeName(name);
+  if (!/^[A-Za-z]+(?:[ '-][A-Za-z]+)*$/.test(sanitized)) return null;
+  if (sanitized.length < 2) return null;
+
+  return sanitized;
+}
+
+function sanitizePhone(phone) {
+  return String(phone || "").trim();
+}
+
+function isValidPhone(phone) {
+  // allow +, digits, spaces, -, () between 7–15 chars
+  return /^\+?[0-9\s\-()]{7,15}$/.test(phone);
 }
 
 // POST /api/orders  { customer:{name,phone}, items:[{id,qty}] }
 export async function createOrder(req, res, next) {
   try {
     const body = req.body || {};
-    const name = (body?.customer?.name || body?.name || "").trim();
-    const phone = (body?.customer?.phone || body?.phone || "").trim();
+
+    const rawName = body?.customer?.name || body?.name || "";
+    const rawPhone = body?.customer?.phone || body?.phone || "";
+
+    const name = validateName(rawName);
+    const phone = sanitizePhone(rawPhone);
     const items = Array.isArray(body?.items) ? body.items : [];
 
-    if (name.length < 2 || !isValidPhone(phone) || items.length === 0) {
-      return res.status(400).json({ error: "Invalid payload" });
+    if (!name) {
+      return res.status(400).json({
+        error:
+          "Invalid name. Name must contain only letters and single separators.",
+      });
+    }
+
+    if (!isValidPhone(phone)) {
+      return res.status(400).json({
+        error:
+          "Invalid phone number. Use digits, spaces, +, -, () with 7–15 characters.",
+      });
+    }
+
+    if (items.length === 0) {
+      return res.status(400).json({
+        error: "No items provided in the order.",
+      });
     }
 
     console.log("BODY:", req.body);
@@ -25,21 +64,25 @@ export async function createOrder(req, res, next) {
 
     for (const it of items) {
       const id = String(it.id);
-      const qty = Math.max(1, Number(it.qty || 1));
-
       if (!ObjectId.isValid(id)) {
         return res.status(400).json({ error: `Invalid lesson id: ${id}` });
       }
 
       const _id = ObjectId.createFromHexString(id);
+      const lesson = await col("lessons").findOne({ _id });
+      if (!lesson) {
+        return res.status(404).json({ error: `Lesson not found: ${id}` });
+      }
 
-      console.log("Checking lesson:", {
-        id,
-        qty,
-        filter: { _id, space: { $gte: qty } },
-      });
+      const qtyNum = Number(it.qty);
+      const qty = Number.isFinite(qtyNum) ? Math.floor(qtyNum) : NaN;
 
-      // 1) Try to decrement space if enough is available
+      if (!Number.isFinite(qty) || qty < 1) {
+        return res.status(400).json({
+          error: `Invalid quantity for "${lesson.topic}" (ID: ${id}): qty must be >= 1`,
+        });
+      }
+
       const updResult = await col("lessons").updateOne(
         { _id, space: { $gte: qty } },
         { $inc: { space: -qty } }
@@ -47,28 +90,25 @@ export async function createOrder(req, res, next) {
 
       console.log("updateOne result:", updResult);
 
-      // If no doc matched, either lesson not found or not enough space
       if (updResult.matchedCount === 0) {
-        return res
-          .status(400)
-          .json({ error: `Not enough space for lesson ${id}` });
+        return res.status(400).json({
+          error: `Not enough space for "${lesson.topic}" (ID: ${id})`,
+        });
       }
 
-      // 2) Read updated lesson
-      const doc = await col("lessons").findOne({ _id });
-      console.log("Updated lesson:", doc);
+      const updatedLesson = await col("lessons").findOne({ _id });
+      console.log("Updated lesson:", updatedLesson);
 
-      if (!doc) {
+      if (!updatedLesson) {
         return res
           .status(400)
           .json({ error: `Lesson ${id} not found after update` });
       }
 
-      // 3) Use updated doc to compute totals
-      total += Number(doc.price) * qty;
+      total += Number(lesson.price) * qty;
       lessonIDs.push(_id);
       spacesArr.push(qty);
-      updated.push({ id: doc._id, space: doc.space });
+      updated.push({ id: updatedLesson._id, space: updatedLesson.space });
     }
 
     const doc = {
